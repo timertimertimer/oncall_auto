@@ -1,6 +1,5 @@
 import yaml
 import os
-import time
 import datetime
 from loguru import logger
 from requests import Session, Response
@@ -21,7 +20,8 @@ class OncallAPI:
         self.session = Session()
         self.login()
 
-    def _add_payload(self, **kwargs) -> dict:
+    @staticmethod
+    def _add_payload(**kwargs) -> dict:
         payload = {}
         for key, value in kwargs.items():
             if value:
@@ -41,12 +41,14 @@ class OncallAPI:
             logger.error(f'{url} | {response.status_code} | {res}')
 
     def _request(self, method, url, json_data=None, data=None):
-        response = self.session.request(method, ADDRESS + url, json=json_data, data=data)
+        response = self.session.request(
+            method, ADDRESS + url, json=json_data, data=data)
         self._show_response(response)
         return response
 
     def login(self) -> None:
-        response = self._request('POST', '/login', data={'username': USERNAME, 'password': PASSWORD})
+        response = self._request(
+            'POST', '/login', data={'username': USERNAME, 'password': PASSWORD})
         if response.status_code == 200:
             logger.success('Successfully logged in')
             csrf_token = response.json()['csrf_token']
@@ -61,7 +63,8 @@ class OncallAPI:
             "name": name,
             "scheduling_timezone": scheduling_timezone,
         }
-        payload = {**self._add_payload(slack_channel=slack_channel, email=email, iris_plan=iris_plan), **payload}
+        payload = {**self._add_payload(slack_channel=slack_channel,
+                                       email=email, iris_plan=iris_plan), **payload}
         response = self._request('POST', url, json_data=payload)
         return response.reason
 
@@ -122,7 +125,7 @@ class OncallAPI:
         return response.reason
 
 
-if __name__ == '__main__':
+def main():
     with open('schedule.yaml') as f:
         schedule = yaml.safe_load(f)
 
@@ -140,14 +143,16 @@ if __name__ == '__main__':
             oncall_schedule.create_user(user['name'])
             oncall_schedule.update_user_info(
                 name=user['name'],
-                contacts={'phone_number': user['phone_number'], 'email': user['email']},
+                contacts={
+                    'phone_number': user['phone_number'], 'email': user['email']},
                 full_name=user['full_name']
             )
             oncall_schedule.add_user_to_a_team(team['name'], user['name'])
             seconds_in_day = 86400
             t_role = user['duty'][0]['role']
             date = user['duty'][0]['date']
-            start = int(datetime.datetime.strptime(date, "%d/%m/%Y").timestamp())
+            start = int(datetime.datetime.strptime(
+                date, "%d/%m/%Y").timestamp())
             end = start
             for duty in user['duty']:
                 date = duty['date']
@@ -161,7 +166,8 @@ if __name__ == '__main__':
                         role=t_role
                     )
                     t_role = role
-                    start = int(datetime.datetime.strptime(date, "%d/%m/%Y").timestamp())
+                    start = int(datetime.datetime.strptime(
+                        date, "%d/%m/%Y").timestamp())
                     end = start
                 end += seconds_in_day
             oncall_schedule.create_event(
@@ -171,3 +177,7 @@ if __name__ == '__main__':
                 team=team['name'],
                 role=t_role
             )
+
+
+if __name__ == '__main__':
+    main()
